@@ -43,7 +43,7 @@ def hide(zip_filename, text):
 def parse_command_line():
     parser = argparse.ArgumentParser()
     parser.add_argument("zip_filename", help="Name of input zip file")
-    parser.add_argument("-r", help="Name of output zip file", metavar="result_zip_filename")
+    parser.add_argument("-o", help="Name of output zip file", metavar="result_zip_filename")
     parser.add_argument("-f", help="File to be hidden into zip", metavar="filename")
     parser.add_argument("-t", help="Text to be hidden into zip", metavar="text")
     return parser.parse_known_args()[0]
@@ -51,10 +51,10 @@ def parse_command_line():
 if __name__ == '__main__':
     args = parse_command_line()
     zip_filename = args.zip_filename
-    if args.r:
+    if args.o:
         # Copy all zip contents
-        shutil.copy(zip_filename, args.r)
-        zip_filename = args.r
+        shutil.copy(zip_filename, args.o)
+        zip_filename = args.o
     if args.f is not None:
         with open(args.f, "rb") as f:
             data = f.read()

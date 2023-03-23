@@ -26,20 +26,26 @@ def reveal(zip_filename, remove=False):
         z.seek(offset - text_len - 4)
         
         result = z.read(text_len)
-
+        
         if remove:
             with open(zip_filename, "r+b") as zout:
-                z.seek(4)
+                # Move central directory to overwrite the hidden data
+                z.seek(offset)
                 zout.seek(offset - text_len - 4)
-                batch_copy(z, zout)
+                batch_copy(z, zout, limit=erd[zipfile._ECD_LOCATION] - erd[zipfile._ECD_OFFSET])
                 zout.truncate()
+                
+                # Write modified end of central direcotry
+                erd[zipfile._ECD_OFFSET] -= (text_len + 4)
+                new_erd = struct.pack(zipfile.structEndArchive, *erd[:zipfile._ECD_COMMENT])
+                zout.write(new_erd)
 
         return result
             
 def parse_command_line():
     parser = argparse.ArgumentParser()
     parser.add_argument("zip_filename", help="Name of input zip file")
-    parser.add_argument("-f", help="Name of output file", metavar="filename")
+    parser.add_argument("-f", help="Write result to specified file", metavar="filename")
     parser.add_argument("-t", help="Print result on stdout", action="store_true")
     parser.add_argument("-r", help="Remove hidden data from zip", action="store_true")
     return parser.parse_known_args()[0]
