@@ -3,6 +3,9 @@ import struct
 import argparse
 import os
 
+EXTRA_PREFIX = 0x3333
+EXTRA_PREFIX_LEN = 4
+
 def batch_copy(src, dst, size=16*1024*1024, limit=None):
     src_read = src.read
     dst_write = dst.write
@@ -14,6 +17,57 @@ def batch_copy(src, dst, size=16*1024*1024, limit=None):
             return
         dst_write(res)
         limit -= min(size, limit)
+
+def find_hidden_in_extra(extra):
+    i = 0
+    while i < len(extra):
+        prefix, length = struct.unpack('<HH', extra[i: i + EXTRA_PREFIX_LEN])
+        if prefix == EXTRA_PREFIX:
+            return extra[i + EXTRA_PREFIX_LEN: i + EXTRA_PREFIX_LEN + length], extra[:i] + extra[i + EXTRA_PREFIX_LEN + length:]
+        i += length + EXTRA_PREFIX_LEN
+    return None, extra
+
+def reveal_from_extra(zip_filename, remove=False):
+    with open(zip_filename, "rb") as z:
+        erd = zipfile._EndRecData(z)
+        offset = erd[zipfile._ECD_OFFSET]
+        z.seek(offset)
+
+        centdir = z.read(zipfile.sizeCentralDir)
+        centdir = struct.unpack(zipfile.structCentralDir, centdir)
+        filename = z.read(centdir[zipfile._CD_FILENAME_LENGTH])
+        extra = z.read(centdir[zipfile._CD_EXTRA_FIELD_LENGTH])
+
+        result, old_extra = find_hidden_in_extra(extra)
+        full_result_len = len(result) + EXTRA_PREFIX_LEN
+        
+        centdir = list(centdir)
+        centdir[zipfile._CD_EXTRA_FIELD_LENGTH] -= full_result_len
+        erd[zipfile._ECD_SIZE] -= full_result_len
+
+        new_erd = struct.pack(zipfile.structEndArchive, *erd[:zipfile._ECD_COMMENT])
+        new_cd = struct.pack(zipfile.structCentralDir, *centdir)
+
+        file_cd_size = zipfile.sizeCentralDir + centdir[zipfile._CD_FILENAME_LENGTH] + centdir[zipfile._CD_EXTRA_FIELD_LENGTH]
+        old_file_cd_size = file_cd_size + full_result_len
+
+        if remove:
+            with open(zip_filename, "r+b") as zout:
+                # Write modified central directory file header
+                zout.seek(offset)
+                zout.write(new_cd)
+                zout.write(filename)
+                zout.write(old_extra)
+
+                #Write old central directory skipping first file header
+                batch_copy(z, zout, limit=erd[zipfile._ECD_SIZE] - file_cd_size)
+
+                # Write modified end of central directory
+                zout.seek(erd[zipfile._ECD_LOCATION] - full_result_len)
+                zout.write(new_erd)
+                zout.truncate()
+        
+        return result
 
 def reveal(zip_filename, remove=False):
     with open(zip_filename, "rb") as z:
@@ -48,11 +102,15 @@ def parse_command_line():
     parser.add_argument("-f", help="Write result to specified file", metavar="filename")
     parser.add_argument("-t", help="Print result on stdout", action="store_true")
     parser.add_argument("-r", help="Remove hidden data from zip", action="store_true")
+    parser.add_argument("-e", help="Reveal from extra field", action="store_true")
     return parser.parse_known_args()[0]
                 
 if __name__ == '__main__':
     args = parse_command_line()
-    data = reveal(args.zip_filename, args.r)
+    reveal_func = reveal
+    if args.e:
+        reveal_func = reveal_from_extra
+    data = reveal_func(args.zip_filename, args.r)
     if data is None:
         print("Hidden data not found")
         os.exit(1)
