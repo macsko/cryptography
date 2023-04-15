@@ -24,14 +24,13 @@ def hide_in_extra(zip_filename, text):
 
         zin.seek(offset)
         centdir = zin.read(zipfile.sizeCentralDir)
-        centdir = struct.unpack(zipfile.structCentralDir, centdir)
+        centdir = list(struct.unpack(zipfile.structCentralDir, centdir))
         filename = zin.read(centdir[zipfile._CD_FILENAME_LENGTH])
         extra = zin.read(centdir[zipfile._CD_EXTRA_FIELD_LENGTH])
 
         full_text = struct.pack('<HH', EXTRA_PREFIX, len(text)) + text
         extra += full_text
         
-        centdir = list(centdir)
         centdir[zipfile._CD_EXTRA_FIELD_LENGTH] += len(full_text)
         erd[zipfile._ECD_SIZE] += len(full_text)
 
