@@ -4,6 +4,7 @@ import argparse
 import shutil
 
 EXTRA_PREFIX = 0x3333
+EXTRA_PREFIX_LEN = 4
 
 def batch_copy(src, dst, size=16*1024*1024, limit=None):
     src_read = src.read
@@ -28,6 +29,9 @@ def hide_in_extra(zip_filename, text):
         filename = zin.read(centdir[zipfile._CD_FILENAME_LENGTH])
         extra = zin.read(centdir[zipfile._CD_EXTRA_FIELD_LENGTH])
 
+        if len(text) + len(extra) + EXTRA_PREFIX_LEN:
+            print("Data too big")
+            return
         full_text = struct.pack('<HH', EXTRA_PREFIX, len(text)) + text
         extra += full_text
         
