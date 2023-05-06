@@ -1,7 +1,6 @@
 import zipfile
 import struct
 import argparse
-import os
 
 EXTRA_PREFIX = 0x3333
 EXTRA_PREFIX_LEN = 4
@@ -117,7 +116,7 @@ if __name__ == '__main__':
     data = reveal_func(args.zip_filename, args.r)
     if data is None:
         print("Hidden data not found")
-        os.exit(1)
+        exit(1)
     if args.f is not None:
         with open(args.f, "wb") as f:
             f.write(data)
