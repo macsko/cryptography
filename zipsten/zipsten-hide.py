@@ -29,8 +29,8 @@ def hide_in_extra(zip_filename, text):
         filename = zin.read(centdir[zipfile._CD_FILENAME_LENGTH])
         extra = zin.read(centdir[zipfile._CD_EXTRA_FIELD_LENGTH])
 
-        if len(text) + len(extra) + EXTRA_PREFIX_LEN:
-            print("Data too big")
+        if len(text) + len(extra) + EXTRA_PREFIX_LEN > 65535:
+            print("Data too large")
             return
         full_text = struct.pack('<HH', EXTRA_PREFIX, len(text)) + text
         extra += full_text
@@ -85,6 +85,9 @@ def hide(zip_filename, text):
             zout.seek(offset)
             zout.write(full_text)
 
+def reverse_bits(b):
+    return bytearray((255 - e) for e in b)
+
 def parse_command_line():
     parser = argparse.ArgumentParser()
     parser.add_argument("zip_filename", help="Name of input zip file")
@@ -92,23 +95,34 @@ def parse_command_line():
     parser.add_argument("-f", help="File to be hidden into zip", metavar="filename")
     parser.add_argument("-t", help="Text to be hidden into zip", metavar="text")
     parser.add_argument("-e", help="Hide in extra field", action="store_true")
+    parser.add_argument("-r", help="Write the data bits in reverse", action="store_true")
     return parser.parse_known_args()[0]
                 
 if __name__ == '__main__':
     args = parse_command_line()
     zip_filename = args.zip_filename
     hide_func = hide
+
     if args.o:
         # Copy all zip contents
         shutil.copy(zip_filename, args.o)
         zip_filename = args.o
+    
     if args.e:
         hide_func = hide_in_extra
+    
     if args.f is not None:
         with open(args.f, "rb") as f:
             data = f.read()
-        hide_func(zip_filename, data)
+        
     elif args.t is not None:
-        hide_func(zip_filename, args.t.encode())
+        data = args.t.encode()
     else:
         print("Either -f or -t flag should be specified")
+        exit(1)
+    
+    if args.r:
+        data = reverse_bits(data)
+    
+    hide_func(zip_filename, data)
+    

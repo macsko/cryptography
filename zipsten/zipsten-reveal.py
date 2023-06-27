@@ -98,25 +98,35 @@ def reveal(zip_filename, remove=False):
                 zout.truncate()
 
         return result
-            
+
+def reverse_bits(b):
+    return bytearray((255 - e) for e in b)
+
 def parse_command_line():
     parser = argparse.ArgumentParser()
     parser.add_argument("zip_filename", help="Name of input zip file")
     parser.add_argument("-f", help="Write result to specified file", metavar="filename")
     parser.add_argument("-t", help="Print result on stdout", action="store_true")
-    parser.add_argument("-r", help="Remove hidden data from zip", action="store_true")
     parser.add_argument("-e", help="Reveal from extra field", action="store_true")
+    parser.add_argument("-r", help="Read the data bits in reverse", action="store_true")
+    parser.add_argument("--remove", help="Remove hidden data from zip", action="store_true")
     return parser.parse_known_args()[0]
                 
 if __name__ == '__main__':
     args = parse_command_line()
     reveal_func = reveal
+    
     if args.e:
         reveal_func = reveal_from_extra
-    data = reveal_func(args.zip_filename, args.r)
+    
+    data = reveal_func(args.zip_filename, args.remove)
     if data is None:
         print("Hidden data not found")
         exit(1)
+    
+    if args.r:
+        data = reverse_bits(data)
+    
     if args.f is not None:
         with open(args.f, "wb") as f:
             f.write(data)
